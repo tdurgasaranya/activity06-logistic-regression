@@ -1,4 +1,4 @@
-Day 1 - Simple Logistic Regression
+Day 1 - Logistic Regression
 ================
 
 In this repository/directory you should see two items:
@@ -43,24 +43,6 @@ Again, we will use two packages from Posit (formerly
   <img src="../README-img/knit-icon.png" alt="knit" width = "20"/> icon
   your Rmd document to verify that no errors occur.
 
-<!-- Since we will be looking at many relationships graphically, it will be nice to not have to code each of these individually.
-`{GGally}` is an extension to `{ggplot2}` that reduces some of the complexities when combining multiple plots.
-For example, [`GGally::ggpairs`](http://ggobi.github.io/ggally/articles/ggpairs.html) is very handy for pairwise comparisons of multiple variables.
-
-- In the **Packages** pane of RStudio, check if `{GGally}` is already installed.
-  Be sure to check both your **User Library** and **System Library**.
-  **We used this last activity so it should already be there.**
-- Once you have verified that `{GGally}` is installed, load it in the R chunk titled `setup`.
-  Add another code line in this chunk, then type the following:
-  
-  
-  ```r
-  library(GGally)
-  ```
-  
-- Run the `setup` code chunk or **knit** <img src="../README-img/knit-icon.png" alt="knit" width = "20"/> icon your Rmd document to verify that no errors occur.
--->
-
 Remember to organize your RMarkdown document using your amazing Markdown
 skills 😄
 
@@ -99,9 +81,15 @@ data](https://www.openintro.org/data/index.php?data=resume):
 > white male.
 
 Review the description page. If you still have questions, review the
-**Source** at the bottom of the description page. Additionally, you can
-use `dplyr::glimpse` to see some meta information about the R data
-frame. After doing this, answer the following questions:
+**Source** (also linked to shortly) at the bottom of the description
+page. On an initial reading, there are some concerns with how this study
+is designed. In [the
+article](https://www.nber.org/system/files/working_papers/w9873/w9873.pdf),
+the authors do point out these concerns (in Sections 3.5 and 5.1).
+
+Recall that you can use `dplyr::glimpse` to see some meta information
+about the R data frame. After doing this and your review of the data’s
+description page, answer the following questions:
 
 1.  Is this an observational study or an experiment? Explain.
 
@@ -131,8 +119,8 @@ Using your output from (4) and (5), answer the following questions:
 6.  What is the probability that a randomly selected résumé/person will
     be called back?
 
-7.  What are the **odds** that a randomly selected résumé/person will be
-    called back?
+7.  What are the [**odds**](https://en.wikipedia.org/wiki/Odds) that a
+    randomly selected résumé/person will be called back?
 
 ## Task 5: Logistic regression
 
@@ -225,7 +213,175 @@ Black,
     related back to your answer from (6)? *Hint* Use the odds to
     calculate this value.
 
+## Challenge: Extending to Mulitple Logistic Regression
+
+We will explore the following question: Is there a difference in call
+back rates in Chicago jobs, after adjusting for the an applicant’s years
+of experience, years of college, race, and sex? Specifically, we will
+fit the following model, where $\hat{p}$ is the estimated probability of
+receiving a callback for a job in Chicago.
+
+$$
+\begin{equation*}
+\log\left(\frac{\hat{p}}{1-\hat{p}}\right) = \hat\beta_0 + \hat\beta_1 \times (\texttt{years\\_experience}) + \hat\beta_2 \times (\texttt{race:White}) + \hat\beta_3 \times (\texttt{sex:male})
+\end{equation*}
+$$
+
+Note that the researchers have the variable labeled `gender`, but this
+is likely meant to be `sex`. [Curious as to what the difference
+is](https://www.merriam-webster.com/words-at-play/sex-vs-gender-how-they2019re-different)?
+
+- Create a new R code chunk and type the following, then run your code
+  chunk or knit your document.
+
+  ``` r
+  resume_select <- resume %>% 
+    rename(sex = gender) %>% 
+    filter(job_city == "Chicago") %>% 
+    mutate(race = case_when(
+           race == "white" ~ "White",
+           TRUE ~ "Black"
+         ),
+         sex = case_when(
+           sex == "f" ~ "female",
+           TRUE ~ "male"
+         )) %>% 
+    select(received_callback, years_experience, race, sex)
+  ```
+
+After doing this, answer the following question:
+
+1.  Explain what six things the above code does in the context of this
+    problem.
+
+## Relationship Exploration
+
+There are many variables in this model. Let’s explore each explanatory
+variable’s relationship with the response variable. Note that I tried to
+explore this using `GGally::ggbivariate`, but kept running into an error
+that I did not have time to explore.
+
+- Create a new R code chunk and create an appropriate data visualization
+  to explore the relationship between `resume_select` and each of the
+  explanatory variables, then run your code chunk or knit your document.
+
+After doing this, answer the following question:
+
+2.  Describe any patterns. What do you notice?
+
+## Fitting the model
+
+Aside: I kept running into an issue using `{tidymodels}` to fit this
+model so I defaulted back to a method that I know works using `glm`. I
+will keep exploring why I was experiencing issues and update you all
+with a more modern method later this semester.
+
+- Create a new R code chunk and type the following, then run your code
+  chunk or knit your document.
+
+  ``` r
+  mult_log_mod <- glm(received_callback ~ years_experience + race + sex, data = resume_select, family = "binomial")
+
+  tidy(mult_log_mod)
+  ```
+
+Focusing on the estimated coefficient for `years_experience`, we would
+say:
+
+> For each additional year of experience for an applicant in Chicago, we
+> expect the *log odds* of an applicant receiving a call back to
+> increase by 0.045 units. Assuming applicants have similar time in
+> spent in college, similar inferred races, and similar inferred sex.
+
+This interpretation is somewhat confusing because we are describing this
+in *log odds*. Fortunately, we can convert these back to odds using the
+following transformation:
+
+$$
+\text{odds} = e^{\log(\text{odds})}
+$$
+
+- Create a new R code chunk and type the following, then run your code
+  chunk or knit your document.
+
+  ``` r
+  tidy(mult_log_mod, exponentiate = TRUE) %>% 
+    knitr::kable(digits = 3)
+  ```
+
+After doing this, answer the following question:
+
+2.  Interpret the estimated coefficient for `years_experience`.
+
+## Assessing model fit
+
+Now we want to check the residuals of this model to check the model’s
+fit. As we saw for multiple linear regression, there are various kinds
+of residuals that try to adjust for various features of the data. Two
+new residuals to explore are *Pearson residuals* and *Deviance
+residuals*.
+
+**Pearson residuals**
+
+The Pearson residual corrects for the unequal variance in the raw
+residuals by dividing by the standard deviation.
+
+$$
+\text{Pearson}_i = \frac{y_i - \hat{p}_i}{\sqrt{\hat{p}_i(1 - \hat{p}_i)}}
+$$
+
+**Deviance residuals**
+
+Deviance residuals are popular because the sum of squares of these
+residuals is the deviance statistic. We will talk more about this later
+in the semester.
+
+$$
+d_i = \text{sign}(y_i - \hat{p}_i)\sqrt{2\Big[y_i\log\Big(\frac{y_i}{\hat{p}_i}\Big) + (1 - y_i)\log\Big(\frac{1 - y_i}{1 - \hat{p}_i}\Big)\Big]}
+$$
+
+Since Pearson residuals are similar to residuals that we have already
+explored, we will instead focus on the deviance residuals.
+
+- Create a new R code chunk and type the following, then run your code
+  chunk or knit your document.
+
+  ``` r
+  # To store residuals and create row number variable
+  mult_log_aug <- augment(mult_log_mod, type.predict = "response", 
+                        type.residuals = "deviance") %>% 
+                        mutate(id = row_number())
+
+  # Plot residuals vs fitted values
+  ggplot(data = mult_log_aug, aes(x = .fitted, y = .resid)) + 
+  geom_point() + 
+  geom_hline(yintercept = 0, color = "red") + 
+  labs(x = "Fitted values", 
+       y = "Deviance residuals", 
+       title = "Deviance residuals vs. fitted")
+
+  # Plot residuals vs row number
+  ggplot(data = mult_log_aug, aes(x = id, y = .resid)) + 
+  geom_point() + 
+  geom_hline(yintercept = 0, color = "red") + 
+  labs(x = "id", 
+       y = "Deviance residuals", 
+       title = "Deviance residuals vs. id")
+  ```
+
+Here we produced two residual plots: the deviance residuals against the
+fitted values and the deviance variables against the index id (an index
+plot). The index plot allows us to easily see some of the more extreme
+observations - there are a lot ($|d_i| > 2$ is quiet alarming). The
+residual plot may look odd (why are there two distinct lines?!?), but
+this is a pretty typical shape when working with a binary response
+variable (the original data is really either a 0 or a 1). In general
+because there are so many extreme values in the index plot, this model
+leaves room for improvement.
+
 ## What is next?
 
-We will fit more advanced logistic models and assess the fit of these
-models.
+We will continue exploring classification models with *multinomial
+regression*. This is an extension of logistic regression when our
+response variable has more than two levels (i.e., from a multinomial
+distribution instead of a binomial distribution).
