@@ -1,0 +1,159 @@
+---
+title: "Activity 6 - Logistic Regression"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+```
+
+
+
+```{r}
+
+resume <- read_csv("https://www.openintro.org/data/csv/resume.csv")
+
+head(resume)
+
+summary(resume)
+
+```
+
+
+```{r}
+library(dplyr)
+
+glimpse(resume)
+
+```
+
+- By looking into this data, it is an Observational experiment study thats observing the pattern and statistics behind candidates resume shortlisting and employement ratio
+
+class(resume$received_callback)
+-received_callback this variable is a numeric variable that stores 0 & 1 values if 0 then resume not shortlisted if 1 then selected for interview as per assumption
+
+- received_callback : data visualization using {ggplot2}
+
+```{r}
+
+plot <- ggplot(resume, aes(x = received_callback))
+
+plot + geom_bar()
+
+plot + geom_histogram()
+
+```
+
+
+```{r}
+
+library(dplyr)
+
+#counts and percentages
+summary_table <- resume %>%
+  count(received_callback) %>%
+  mutate(percent = prop.table(n) * 100)
+
+colnames(summary_table) <- c("received_callback", "n", "percent")
+
+print(summary_table)
+
+
+```
+
+```{r}
+
+library(ggplot2)
+
+# counts and percentages
+counts <- table(resume$received_callback)
+percentages <- prop.table(counts) * 100
+
+# Create a data frame for plotting
+data_plot <- data.frame(
+  received_callback = factor(names(counts), levels = names(counts)),
+  n = as.vector(counts),
+  percent = as.vector(percentages)
+)
+
+# bar plot
+ggplot(data_plot, aes(x = received_callback, y = n)) +
+  geom_bar(stat = "identity", fill = "Blue") +
+  geom_text(aes(label = paste0(percent, "%")), vjust = -0.5, color = "white") +
+  labs(x = "Received Callback", y = "Count") +
+  ggtitle("Counts and Percentages for Received Callback") +
+  theme_minimal()
+
+
+```
+
+```{r}
+library(dplyr)
+
+# Calculate the logistic equation
+logistic_eq <- glm(received_callback ~ ., data = resume, family = binomial())
+
+logistic_eq
+
+```
+
+
+
+
+```{r}
+# Sample mapping of first names to race categories
+library(dplyr)
+
+# Group the data by race and calculate the percentage of calls received
+race_percentage <- resume %>%
+  group_by(race) %>%
+  summarize(percentage = mean(received_callback == 1) * 100)
+
+# Print the result for Yes
+print(race_percentage)
+
+# Group the data by race and calculate the percentage of calls received
+race_percentage <- resume %>%
+  group_by(race) %>%
+  summarize(percentage = mean(received_callback == 0) * 100)
+```
+
+
+```{r}
+# For No
+print(race_percentage)
+
+
+```
+
+
+```{r}
+
+# The {tidymodels} method for logistic regression requires that the response be a factor variable
+resume <- resume %>% 
+  mutate(received_callback = as.factor(received_callback))
+
+resume_mod <- logistic_reg() %>%
+  set_engine("glm") %>%
+  fit(received_callback ~ race, data = resume, family = "binomial")
+
+tidy(resume_mod) %>% 
+  knitr::kable(digits = 3)
+
+```
+
+```{r}
+#logistic regression model
+model <- glm(received_callback ~ ., data = resume, family = binomial())
+
+#coefficients
+coeff <- coef(model)
+
+print(model)
+
+```
