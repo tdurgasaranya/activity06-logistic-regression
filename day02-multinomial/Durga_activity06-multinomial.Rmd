@@ -1,0 +1,195 @@
+---
+title: "Activity 6 - Multinomial Logistic Regression"
+output: github_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+---
+title: "multinomial logistic regression model"
+author: "Durga"
+date: "7/22/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Load the packages and libraries:
+
+- Loading {tidyverse} and {tidymodels} as required for Multinomial regression
+
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(ggplot2)
+library(dplyr)
+
+```
+
+#Load the data, create a datafram and organize the dataset
+
+- Selecting only specific variables (ppage, educ, race, gender, income_cat, Q30, voter_category) from the created Dataframe
+
+- Renaming variable Gender to Sex
+
+
+```{r}
+
+voters <- read.csv("https://raw.githubusercontent.com/fivethirtyeight/data/master/non-voters/nonvoters_data.csv")
+
+
+voters <- voters %>%
+  select(ppage, educ, race, Sex = gender, income_cat, Q30, voter_category)
+
+voters
+
+
+```
+
+
+- To create a new variable "party" with Q30 categories given
+
+```{r}
+
+# Assuming 'Q' is the variable representing the political preference
+
+# Create a new variable 'political_party' based on the values of 'Q'
+voters$party <- ifelse(voters$Q30 == 1, "Republican",
+                                    ifelse(voters$Q30 == 2, "Democrat",
+                                           ifelse(voters$Q30 == 3, "Independent",
+                                                  ifelse(voters$Q30 == 4, "Another party, please specify",
+                                                         ifelse(voters$Q30 == 5, "No preference", NA)))))
+
+voters$party
+
+```
+
+
+
+
+```{r}
+
+# Convert 'voter_category' to a factor
+voters$voter_category <- factor(voters$voter_category)
+
+# Now, fit the multinomial regression model
+multi_mod <- multinom_reg() %>%
+  set_engine("nnet") %>%
+  fit(voter_category ~ ppage + educ + race + Sex + income_cat, data = voters)
+
+multi_mod
+```
+
+
+
+
+```{r}
+
+multi_mod$fit$call
+nnet::multinom(formula = voter_category ~ ppage + educ + race + Sex + income_cat, data = voters, trace = FALSE)
+
+```
+
+
+
+
+```{r}
+
+multi_mod <- repair_call(multi_mod, data = voters)
+multi_mod$fit$call
+nnet::multinom(formula = voter_category ~ ppage + educ + race + Sex + income_cat, data = voters, trace = FALSE)
+
+```
+
+
+
+```{r}
+voter_aug <- augment(multi_mod, new_data = voters)
+
+voter_aug
+
+voter_aug %>% 
+  select(contains("pred"))
+
+
+```
+
+
+```{r}
+
+voter_conf_mat <- voter_aug %>% 
+  count(voter_category, .pred_class, .drop = FALSE)
+
+voter_conf_mat %>% 
+  pivot_wider(
+    names_from = .pred_class,
+    values_from = n
+  )
+
+```
+
+
+```{r}
+
+voters %>% 
+  ggplot(aes(x = voter_category)) +
+  geom_bar() +
+  labs(
+    main = "Self-reported voter category"
+    )
+
+voter_conf_mat %>% 
+  ggplot(aes(x = voter_category, y = n, fill = .pred_class)) +
+  geom_bar(stat = "identity") +
+  labs(
+    main = "Predicted vs self-reported voter category"
+    )
+
+```
+
+
+
+```{r}
+
+# Assuming you have a dataset named 'voters' with 'voter_category' and 'party' as columns
+
+# Convert 'voter_category' to a factor
+voters$voter_category <- factor(voters$voter_category)
+
+# Fit the multinomial regression model with additional predictor 'party'
+multi_mod_with_party <- multinom_reg() %>%
+  set_engine("nnet") %>%
+  fit(voter_category ~ ppage + educ + race + Sex + income_cat + party, data = voters)
+
+# Plot the self-reported voter category
+voters %>% 
+  ggplot(aes(x = voter_category)) +
+  geom_bar() +
+  labs(main = "Self-reported voter category")
+
+# Get the confusion matrix for the model with additional predictor 'party'
+voter_conf_mat_with_party <- multi_mod_with_party %>% 
+  conf_mat(data = voters)
+
+# Plot the predicted vs. self-reported voter category with 'party'
+voter_conf_mat_with_party %>% 
+  ggplot(aes(x = voter_category, y = n, fill = .pred_class)) +
+  geom_bar(stat = "identity") +
+  labs(main = "Predicted vs self-reported voter category (with 'party')")
+
+
+```
+
+
+- The differences between the above two models for variable Party, voter category:
+
+Model Performance
+Interpretation
+Variable Importance
+Model Assumptions
+Model Complexity
+
